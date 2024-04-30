@@ -1,5 +1,5 @@
 #include <cstdint>
-#include <iostream> 
+#include <iostream>
 #include <sys/types.h>
 using namespace std; 
 class hasher{
@@ -31,9 +31,9 @@ class hasher{
 	uint32_t right_rotate(uint32_t data,int d) {
 		return (data>>d)|(data<<(32-d));
 	}
-	void copybuff(uint32_t *buff,const uint32_t *w,int start) {
+	void copybuff(uint32_t *w,const uint32_t *buff,int start) {
 		for(int i=0;i<16;i++) {
-			buff[i]=w[start+i];
+			w[i]=buff[start+i];
 		}
 	}
 	void process_buff(uint32_t *buff,int start) {
@@ -65,19 +65,29 @@ class hasher{
 			a[1] = a[0];
 			a[0] = temp1 + temp2;
 		}
-		for(int i=0;i<8;i++)
+		for(int i=0;i<8;i++) {
 			hash[i]+=a[i];
+		}
 	}
 	void finalize_hash(uint8_t *output) {
 		for(int i=0;i<8;i++) {
-			output[i+0] = (hash[i] >> 24) & 0xFF;
-			output[i+1] = (hash[i] >> 16) & 0xFF;
-			output[i+2] = (hash[i] >> 8) & 0xFF;
-			output[i+3] = (hash[i]) & 0xFF;
+			output[4*i+0] = (hash[i] >> 24) & 255;
+			output[4*i+1] = (hash[i] >> 16) & 255;
+			output[4*i+2] = (hash[i] >> 8) & 255;
+			output[4*i+3] = (hash[i]) & 255;
+		}
+	}
+	static void bin_to_hex(const void* data, uint32_t len, char* out) {
+		static const char* const lut = "0123456789abcdef";
+		uint32_t i;
+		for (i = 0; i < len; ++i){
+			uint8_t c = ((const uint8_t*)data)[i];
+			out[i*2] = lut[c >> 4];
+			out[i*2 + 1] = lut[c & 15];
 		}
 	}
 	public:
-	void process(const void *data,int size,uint8_t *output) {
+	void process(const void *data,int size,char *output) {
 		const uint8_t *buff = (const uint8_t *)data;
 		uint32_t ptr[size];
 		convert8_32(buff,ptr,size);
@@ -92,6 +102,8 @@ class hasher{
 			size-=64;
 			hash_size+=64;
 		}
-		finalize_hash(output);
+		uint8_t out[32];
+		finalize_hash(out);
+		bin_to_hex(out,32,output);
 	}
 };
