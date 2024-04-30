@@ -4,6 +4,11 @@
 using namespace std; 
 class hasher{
 	private:
+	void convert8_32(const uint8_t *buff,uint32_t *ptr,int size) {
+		for(int i=0;i<size;i++) {
+			ptr[i] = (buff[i+0] <<24) | (buff[i+1] <<16) | (buff[i+2] << 8) | (buff[i]);
+		}
+	}
 	uint32_t hash[8] = {
 		0x6a09e667,
 		0xbb67ae85,
@@ -63,9 +68,19 @@ class hasher{
 		for(int i=0;i<8;i++)
 			hash[i]+=a[i];
 	}
+	void finalize_hash(uint8_t *output) {
+		for(int i=0;i<8;i++) {
+			output[i+0] = (hash[i] >> 24) & 0xFF;
+			output[i+1] = (hash[i] >> 16) & 0xFF;
+			output[i+2] = (hash[i] >> 8) & 0xFF;
+			output[i+3] = (hash[i]) & 0xFF;
+		}
+	}
 	public:
-	void process(const void *data,int size) {
-		const uint32_t *ptr = (const uint32_t *)data;
+	void process(const void *data,int size,uint8_t *output) {
+		const uint8_t *buff = (const uint8_t *)data;
+		uint32_t ptr[size];
+		convert8_32(buff,ptr,size);
 		int hash_size = 0;
 		uint32_t w[64];
 		while(size>=64) {
@@ -77,5 +92,6 @@ class hasher{
 			size-=64;
 			hash_size+=64;
 		}
+		finalize_hash(output);
 	}
 };
