@@ -38,21 +38,32 @@ class hasher{
 			buff[start+i] = buff[start+i-16] + s0 + buff[i-7] + s1;
 		}
 	}
-	uint32_t *initilize_working_variables() {
-		uint32_t a[8];
+	void initilize_working_variables(uint32_t *a) {
 		for(int i=0;i<8;i++) {
 			a[i] = hash[i];
 		}
-		return a;
 	}
 	void compress(uint32_t *buff,uint32_t *a) {
 		for(int i=0;i<64;i++) {
 			uint32_t s1 = (right_rotate(a[4], 6)) ^ (right_rotate(a[4], 6)) ^ (right_rotate(a[4], 25));
 			uint32_t ch = (a[4] & a[5]) ^ ((!a[4]) & a[6]);
-			uint32_t temp = a[7] + s1 +ch + constants[i] + buff[i];
-			
+			uint32_t temp1 = a[7] + s1 +ch + constants[i] + buff[i];
+			uint32_t s0 = right_rotate(a[0], 2) ^ right_rotate(a[0], 13) ^ right_rotate(a[0], 22);
+			uint32_t maj = (a[0] & a[1]) ^ (a[0] & a[2]) ^ (a[1] & a[2]);
+			uint32_t temp2 = s0 + maj;
+			a[7] = a[6];
+			a[6] = a[5];
+			a[5] = a[4];
+			a[4] = a[3] + temp1;
+			a[3] = a[2];
+			a[2] = a[1];
+			a[1] = a[0];
+			a[0] = temp1 + temp2;
 		}
+		for(int i=0;i<8;i++)
+			hash[i]+=a[i];
 	}
+	public:
 	void process(const void *data,int size) {
 		const uint32_t *ptr = (const uint32_t *)data;
 		int hash_size = 0;
@@ -60,8 +71,11 @@ class hasher{
 		while(size>=64) {
 			copybuff(w,ptr,hash_size);
 			process_buff(w,hash_size);
-			uint32_t* a = initilize_working_variables();
+			uint32_t a[8];
+			initilize_working_variables(a);
 			compress(w,a);
+			size-=64;
+			hash_size+=64;
 		}
 	}
 };
