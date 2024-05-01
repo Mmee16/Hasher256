@@ -6,7 +6,7 @@ class hasher{
 	private:
 	void convert8_32(const uint8_t *buff,uint32_t *ptr,int size) {
 		for(int i=0;i<size;i++) {
-			ptr[i] = (buff[i+0] <<24) | (buff[i+1] <<16) | (buff[i+2] << 8) | (buff[i]);
+			ptr[i] = (buff[4*i+0] <<24) | (buff[4*i+1] <<16) | (buff[4*i+2] << 8) | (buff[4*i+3]);
 		}
 	}
 	uint32_t hash[8] = {
@@ -85,6 +85,10 @@ class hasher{
 			out[i*2] = lut[c >> 4];
 			out[i*2 + 1] = lut[c & 15];
 		}
+		for(int i=0;i<65;i++) {
+			cout<<out[i];
+		}
+		cout<<endl;
 	}
 	public:
 	void process(const void *data,int size,char *output) {
@@ -105,5 +109,6 @@ class hasher{
 		uint8_t out[32];
 		finalize_hash(out);
 		bin_to_hex(out,32,output);
+		cout<<(buff[70])<<" "<<sizeof(ptr[0]);
 	}
 };
