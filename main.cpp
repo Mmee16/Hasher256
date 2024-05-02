@@ -1,15 +1,12 @@
 #include "hasher.cpp"
-#include <cstdint>
 using namespace std;
 int main() {
 	hasher hash;
-	char s[64];
+	char s[65]={1};
 	char p[64];
+	hash.process("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmno",64,s);
 	for(int i=0;i<64;i++) {
-		p[i]='a';
-		s[i]='1';
+		cout<<s[i];
 	}
-	hash.process(p,64,s);
-	
 	return 0;
 }

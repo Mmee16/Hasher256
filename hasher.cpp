@@ -4,9 +4,11 @@
 using namespace std; 
 class hasher{
 	private:
-	void convert8_32(const uint8_t *buff,uint32_t *ptr,int size) {
-		for(int i=0;i<size;i++) {
-			ptr[i] = (buff[4*i+0] <<24) | (buff[4*i+1] <<16) | (buff[4*i+2] << 8) | (buff[4*i+3]);
+	//This is the logic to convert a 8 bit array to 32 bit array
+	//This converts char to uint36_t and populates it to first 16 places of w 
+	void copy_convert_buff(const uint8_t *buff,uint32_t *ptr) {
+		for(int i=0;i<16;i++) {
+			ptr[i] = (uint32_t) buff[4*i+0] <<24 | (uint32_t) buff[4*i+1] <<16 | (uint32_t) buff[4*i+2] << 8 | (uint32_t)buff[4*i+3];
 		}
 	}
 	uint32_t hash[8] = {
@@ -31,16 +33,11 @@ class hasher{
 	uint32_t right_rotate(uint32_t data,int d) {
 		return (data>>d)|(data<<(32-d));
 	}
-	void copybuff(uint32_t *w,const uint32_t *buff,int start) {
-		for(int i=0;i<16;i++) {
-			w[i]=buff[start+i];
-		}
-	}
-	void process_buff(uint32_t *buff,int start) {
+	void process_buff(uint32_t *buff) {
 		for(int i=16;i<64;i++) {
-			uint32_t s0 =(right_rotate(buff[start+i-15],7)) ^ (right_rotate(buff[start+i-15], 18)) ^ (buff[start+i-15]>>3);
-			uint32_t s1 =(right_rotate(buff[start+i-2],17)) ^ (right_rotate(buff[start+i-2], 19)) ^ (buff[start+i-2]>>10);
-			buff[start+i] = buff[start+i-16] + s0 + buff[i-7] + s1;
+			uint32_t s0 =(right_rotate(buff[i-15],7)) ^ (right_rotate(buff[i-15], 18)) ^ (buff[i-15]>>3);
+			uint32_t s1 =(right_rotate(buff[i-2],17)) ^ (right_rotate(buff[i-2], 19)) ^ (buff[i-2]>>10);
+			buff[i] = buff[i-16] + s0 + buff[i-7] + s1;
 		}
 	}
 	void initilize_working_variables(uint32_t *a) {
@@ -50,8 +47,8 @@ class hasher{
 	}
 	void compress(uint32_t *buff,uint32_t *a) {
 		for(int i=0;i<64;i++) {
-			uint32_t s1 = (right_rotate(a[4], 6)) ^ (right_rotate(a[4], 6)) ^ (right_rotate(a[4], 25));
-			uint32_t ch = (a[4] & a[5]) ^ ((!a[4]) & a[6]);
+			uint32_t s1 = (right_rotate(a[4], 6)) ^ (right_rotate(a[4], 11)) ^ (right_rotate(a[4], 25));
+			uint32_t ch = (a[4] & a[5]) ^ ((~a[4]) & a[6]);
 			uint32_t temp1 = a[7] + s1 +ch + constants[i] + buff[i];
 			uint32_t s0 = right_rotate(a[0], 2) ^ right_rotate(a[0], 13) ^ right_rotate(a[0], 22);
 			uint32_t maj = (a[0] & a[1]) ^ (a[0] & a[2]) ^ (a[1] & a[2]);
@@ -93,22 +90,20 @@ class hasher{
 	public:
 	void process(const void *data,int size,char *output) {
 		const uint8_t *buff = (const uint8_t *)data;
-		uint32_t ptr[size];
-		convert8_32(buff,ptr,size);
-		int hash_size = 0;
 		uint32_t w[64];
+		//process in sizes of 64 so first we process the first 64
+		//then move the array by 64
 		while(size>=64) {
-			copybuff(w,ptr,hash_size);
-			process_buff(w,hash_size);
+			copy_convert_buff(buff, w);
+			process_buff(w);
 			uint32_t a[8];
 			initilize_working_variables(a);
 			compress(w,a);
 			size-=64;
-			hash_size+=64;
+			buff+=64;
 		}
 		uint8_t out[32];
 		finalize_hash(out);
 		bin_to_hex(out,32,output);
-		cout<<(buff[70])<<" "<<sizeof(ptr[0]);
 	}
 };
