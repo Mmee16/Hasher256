@@ -1,14 +1,22 @@
+#include <cstddef>
 #include <cstdint>
 #include <iostream>
+#include <ostream>
 #include <sys/types.h>
 using namespace std; 
 class hasher{
 	private:
+	uint8_t chunck[64];
+	uint8_t last_chunck[64];
+	size_t last_chunck_size=0;
+	uint32_t a[8];
+	size_t chunck_size;
 	//This is the logic to convert a 8 bit array to 32 bit array
-	//This converts char to uint36_t and populates it to first 16 places of w 
+	//This converts char to uint32_t and populates it to first 16 places of ptr
 	void copy_convert_buff(const uint8_t *buff,uint32_t *ptr) {
 		for(int i=0;i<16;i++) {
-			ptr[i] = (uint32_t) buff[4*i+0] <<24 | (uint32_t) buff[4*i+1] <<16 | (uint32_t) buff[4*i+2] << 8 | (uint32_t)buff[4*i+3];
+			ptr[i] = (uint32_t) buff[0] <<24 | (uint32_t) buff[1] <<16 | (uint32_t) buff[2] << 8 | (uint32_t)buff[3];
+			buff+=4;
 		}
 	}
 	uint32_t hash[8] = {
@@ -33,19 +41,19 @@ class hasher{
 	uint32_t right_rotate(uint32_t data,int d) {
 		return (data>>d)|(data<<(32-d));
 	}
-	void process_buff(uint32_t *buff) {
+	void process_rest_of_buff(uint32_t *buff) {
 		for(int i=16;i<64;i++) {
 			uint32_t s0 =(right_rotate(buff[i-15],7)) ^ (right_rotate(buff[i-15], 18)) ^ (buff[i-15]>>3);
 			uint32_t s1 =(right_rotate(buff[i-2],17)) ^ (right_rotate(buff[i-2], 19)) ^ (buff[i-2]>>10);
 			buff[i] = buff[i-16] + s0 + buff[i-7] + s1;
 		}
 	}
-	void initilize_working_variables(uint32_t *a) {
+	void initilize_working_variables() {
 		for(int i=0;i<8;i++) {
 			a[i] = hash[i];
 		}
 	}
-	void compress(uint32_t *buff,uint32_t *a) {
+	void compress(uint32_t *buff) {
 		for(int i=0;i<64;i++) {
 			uint32_t s1 = (right_rotate(a[4], 6)) ^ (right_rotate(a[4], 11)) ^ (right_rotate(a[4], 25));
 			uint32_t ch = (a[4] & a[5]) ^ ((~a[4]) & a[6]);
@@ -66,6 +74,13 @@ class hasher{
 			hash[i]+=a[i];
 		}
 	}
+	void process_buff(const uint8_t *buff,uint32_t *ptr) {
+		copy_convert_buff(buff,ptr);
+		process_rest_of_buff(ptr);
+		initilize_working_variables();
+		compress(ptr);
+	}
+
 	void finalize_hash(uint8_t *output) {
 		for(int i=0;i<8;i++) {
 			output[4*i+0] = (hash[i] >> 24) & 255;
@@ -73,6 +88,30 @@ class hasher{
 			output[4*i+2] = (hash[i] >> 8) & 255;
 			output[4*i+3] = (hash[i]) & 255;
 		}
+	}
+	void process_last_chunck(const uint8_t *buff,size_t size) {
+		for(int i=0;i<size;i++) {
+			last_chunck[i]=buff[i];
+		}
+		last_chunck[size]=0x80;
+		if(size<57) {
+			for(int i=size+1;i<64;i++) {
+				last_chunck[i]=0;
+			}
+		}
+		uint32_t ptr[64];
+		process_buff(last_chunck, ptr);
+		size=0;
+		last_chunck[0]=0x80;
+		for(int i=size+1;i<56;i++) {
+			last_chunck[i]=0;
+		}
+		uint64_t total_size = chunck_size*8;
+		for(int i=8;i>0;i--) {
+			last_chunck[55+i] = total_size & 255;
+			total_size >>=8;
+		}
+		process_buff(last_chunck, ptr);
 	}
 	static void bin_to_hex(const void* data, uint32_t len, char* out) {
 		static const char* const lut = "0123456789abcdef";
@@ -82,28 +121,21 @@ class hasher{
 			out[i*2] = lut[c >> 4];
 			out[i*2 + 1] = lut[c & 15];
 		}
-		for(int i=0;i<65;i++) {
-			cout<<out[i];
-		}
-		cout<<endl;
 	}
 	public:
 	void process(const void *data,int size,char *output) {
+		//char is uint*_t
 		const uint8_t *buff = (const uint8_t *)data;
-		uint32_t w[64];
-		//process in sizes of 64 so first we process the first 64
-		//then move the array by 64
+		uint32_t ptr[64];
+		chunck_size+=size;
 		while(size>=64) {
-			copy_convert_buff(buff, w);
-			process_buff(w);
-			uint32_t a[8];
-			initilize_working_variables(a);
-			compress(w,a);
-			size-=64;
+			process_buff(buff,ptr);
 			buff+=64;
+			size-=64;
 		}
+		process_last_chunck(buff,size);
 		uint8_t out[32];
 		finalize_hash(out);
-		bin_to_hex(out,32,output);
+		bin_to_hex(out, 32, output);
 	}
 };
